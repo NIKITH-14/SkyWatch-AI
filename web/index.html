@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkyWatch AI — Intelligence Control Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet Rotated Marker -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.2/leaflet.rotatedMarker.umd.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ==================== LOGIN SCREEN ==================== -->
+  <div id="loginScreen" class="login-screen active">
+    <div class="login-background">
+      <canvas id="loginCanvas"></canvas>
+    </div>
+    <div class="login-container">
+      <div class="login-panel">
+        <div class="login-title">SkyWatch AI</div>
+        <div class="login-subtitle">Secure Intelligence Login</div>
+        
+        <form id="loginForm" class="login-form">
+          <div class="input-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="Enter credentials" required />
+          </div>
+          
+          <div class="input-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Enter password" required />
+          </div>
+          
+          <button type="submit" class="login-btn">
+            <span>ACCESS SYSTEM</span>
+            <span class="btn-glow"></span>
+          </button>
+        </form>
+
+        <div class="login-footer">
+          <p>Intelligence Agency Control System v2.0</p>
+          <p style="font-size: 11px; margin-top: 8px; color: #00ff88;">Secure Connection Established</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APPLICATION ==================== -->
+  <div id="mainApp" class="main-app">
+    <!-- TOP STATUS BAR -->
+    <header class="topbar">
+      <div class="topbar-brand">⚔️ SKYWATCH AI CONTROL CENTER</div>
+      <div class="topbar-center">
+        <span class="status-badge online">● SYSTEM ONLINE</span>
+        <span id="systemTime" class="topbar-time">00:00:00 UTC</span>
+      </div>
+      <div class="topbar-right">
+        <button id="btnLogout" class="logout-btn">LOGOUT</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <!-- LEFT SIDEBAR (NAVIGATION) -->
+      <aside class="sidebar">
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-screen="dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
+          <button class="nav-btn" data-screen="live-tracking">
+            <span class="nav-icon">📡</span>
+            <span class="nav-label">Live Tracking</span>
+          </button>
+          <button class="nav-btn" data-screen="ai-analysis">
+            <span class="nav-icon">🤖</span>
+            <span class="nav-label">AI Analysis</span>
+          </button>
+          <button class="nav-btn" data-screen="alerts">
+            <span class="nav-icon">⚠️</span>
+            <span class="nav-label">Alerts & History</span>
+          </button>
+          <button class="nav-btn" data-screen="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Settings</span>
+          </button>
+        </nav>
+
+        <!-- SIDEBAR CONTENT PANELS -->
+        <!-- Dashboard Info -->
+        <div id="screen-dashboard" class="sidebar-content active">
+          <div class="sidebar-header">Command Center</div>
+          <div class="sidebar-info">
+            <p>Welcome to SkyWatch AI Intelligence Control System</p>
+            <p style="margin-top: 12px; font-size: 12px; color: #a8b0be;">Select options below or use the main map interface to track and monitor assets in real-time.</p>
+            <div class="quick-stats" style="margin-top: 16px;">
+              <div class="stat-item">
+                <span class="stat-label">Active Assets:</span>
+                <span class="stat-value" id="stat-assets">3</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Alerts:</span>
+                <span class="stat-value" id="stat-alerts">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">System Status:</span>
+                <span class="stat-value" style="color: #1ecc71;">OPERATIONAL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Tracking Panel -->
+        <div id="screen-live-tracking" class="sidebar-content">
+          <div class="sidebar-header">Live Tracking</div>
+          <div class="control-box">
+            <label>Select Object</label>
+            <select id="objectSelector">
+              <option value="jet-1">✈️ Jet Alpha-1</option>
+              <option value="vehicle-1">🚗 Vehicle Bravo-1</option>
+              <option value="drone-1">🛸 Drone Charlie-1</option>
+            </select>
+          </div>
+          <div id="objectDetails" class="object-details">
+            <div class="detail-row"><span>ID:</span><strong id="detail-id">--</strong></div>
+            <div class="detail-row"><span>Speed:</span><strong id="detail-speed">0 m/s</strong></div>
+            <div class="detail-row"><span>Direction:</span><strong id="detail-direction">0°</strong></div>
+            <div class="detail-row"><span>Latitude:</span><strong id="detail-lat">0.0000</strong></div>
+            <div class="detail-row"><span>Longitude:</span><strong id="detail-lng">0.0000</strong></div>
+            <div class="detail-row"><span>Status:</span><strong id="detail-status">IDLE</strong></div>
+          </div>
+          <div class="control-box">
+            <label>Manual Control</label>
+            <div class="button-group">
+              <button id="btnStart" class="btn-small btn-green">Start</button>
+              <button id="btnStop" class="btn-small btn-blue">Stop</button>
+              <button id="btnReset" class="btn-small btn-gray">Reset</button>
+            </div>
+            <div class="keyboard-hint">Use WASD / Arrow Keys</div>
+          </div>
+        </div>
+
+        <!-- AI Analysis Panel -->
+        <div id="screen-ai-analysis" class="sidebar-content">
+          <div class="sidebar-header">AI Analysis</div>
+          <div class="ai-features">
+            <div class="feature-item">
+              <strong>🔍 Anomaly Detection</strong>
+              <p>Analyzing motion patterns...</p>
+            </div>
+            <div class="feature-item">
+              <strong>📈 Path Prediction</strong>
+              <p>Next waypoint: Calculating...</p>
+            </div>
+            <div class="feature-item">
+              <strong>🎯 Classification</strong>
+              <p>Object type detection active</p>
+            </div>
+            <div class="feature-item">
+              <strong>⚡ Risk Assessment</strong>
+              <p>Status: Normal</p>
+            </div>
+          </div>
+          <button id="btnEnableAI" class="btn-full btn-green">Enable AI Monitoring</button>
+        </div>
+
+        <!-- Alerts Panel -->
+        <div id="screen-alerts" class="sidebar-content">
+          <div class="sidebar-header">Alerts & History</div>
+          <div id="alertsList" class="alerts-list">
+            <p style="color: #a8b0be; text-align: center; padding: 20px 0;">No alerts at this time</p>
+          </div>
+          <button id="btnClearAlerts" class="btn-full btn-gray" style="margin-top: 12px;">Clear Alerts</button>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="screen-settings" class="sidebar-content">
+          <div class="sidebar-header">Settings</div>
+          <div class="settings-group">
+            <label>Map Style</label>
+            <div class="button-group">
+              <button class="btn-small map-style-btn active" data-style="dark">Dark</button>
+              <button class="btn-small map-style-btn" data-style="normal">Normal</button>
+              <button class="btn-small map-style-btn" data-style="satellite">Satellite</button>
+            </div>
+          </div>
+          <div class="settings-group">
+            <label>Animation Speed</label>
+            <input type="range" id="speedControl" min="1" max="10" value="5" class="slider" />
+            <div style="text-align: center; color: #a8b0be; font-size: 11px; margin-top: 8px;">
+              Speed: <span id="speedValue">5</span>x
+            </div>
+          </div>
+          <div class="settings-group">
+            <label>History Playback</label>
+            <div class="button-group">
+              <button id="btnPlayHistory" class="btn-small btn-green">Play</button>
+              <button id="btnPauseHistory" class="btn-small btn-blue">Pause</button>
+              <button id="btnResetHistory" class="btn-small btn-gray">Reset</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- MAIN VIEW (MAP OR DASHBOARD) -->
+      <main class="main-view">
+        <!-- Dashboard Screen with Option Cards -->
+        <div id="dashboardView" class="dashboard-view active">
+          <div class="dashboard-background">
+            <canvas id="dashboardCanvas"></canvas>
+          </div>
+          <div class="dashboard-content">
+            <h1 class="dashboard-title">INTELLIGENCE OPERATIONS</h1>
+            <p class="dashboard-subtitle">Select operational module to proceed</p>
+            
+            <div class="options-grid">
+              <!-- Live Tracking Card -->
+              <div class="option-card" data-action="live-tracking">
+                <div class="card-icon">📡</div>
+                <div class="card-title">Live Tracking</div>
+                <div class="card-description">Real-time monitoring and position tracking</div>
+                <div class="card-accent"></div>
+              </div>
+
+              <!-- AI Analysis Card -->
+              <div class="option-card" data-action="ai-analysis">
+                <div class="card-icon">🤖</div>
+                <div class="card-title">AI Analysis</div>
+                <div class="card-description">Advanced anomaly detection and prediction</div>
+                <div class="card-accent"></div>
+              </div>
+
+              <!-- Alerts & History Card -->
+              <div class="option-card" data-action="alerts">
+                <div class="card-icon">⚠️</div>
+                <div class="card-title">Alerts & History</div>
+                <div class="card-description">Event logging and incident management</div>
+                <div class="card-accent"></div>
+              </div>
+
+              <!-- Settings Card -->
+              <div class="option-card" data-action="settings">
+                <div class="card-icon">⚙️</div>
+                <div class="card-title">Settings</div>
+                <div class="card-description">System configuration and preferences</div>
+                <div class="card-accent"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map Screen -->
+        <div id="mapView" class="map-view">
+          <div id="map" class="map-container"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="app.js"></script>
+  <script src="map-manager.js"></script>
+  <script src="object-tracker.js"></script>
+  <script src="ai-engine.js"></script>
+  <script src="ui-effects.js"></script>
+</body>
+</html>
