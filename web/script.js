@@ -243,6 +243,18 @@ function initializeButtons() {
     testButtons.forEach((btn, index) => {
         btn.addEventListener('click', () => runTest(index));
     });
+    
+    // Clear console button
+    const clearBtn = document.getElementById('clearConsole');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            const activityLog = document.getElementById('activityLog');
+            if (activityLog) {
+                activityLog.innerHTML = '';
+                addActivityLog('SYSTEM', 'Activity log cleared', 'info');
+            }
+        });
+    }
 }
 
 function logout() {
@@ -522,6 +534,28 @@ function addLogEntry(system, message, type = 'info') {
     // Keep only last 20 entries
     const entries = logDiv.querySelectorAll('.log-entry');
     if (entries.length > 20) {
+        entries[0].remove();
+    }
+    
+    // Also log to activity console
+    addActivityLog(system, message, type);
+}
+
+function addActivityLog(system, message, type = 'info') {
+    const activityLog = document.getElementById('activityLog');
+    if (!activityLog) return;
+    
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.textContent = `[${timestamp}] ${system}: ${message}`;
+    
+    activityLog.appendChild(entry);
+    activityLog.scrollTop = activityLog.scrollHeight;
+    
+    // Keep only last 50 entries
+    const entries = activityLog.querySelectorAll('.log-entry');
+    if (entries.length > 50) {
         entries[0].remove();
     }
 }
