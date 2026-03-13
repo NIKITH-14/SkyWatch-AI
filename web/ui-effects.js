@@ -38,6 +38,33 @@ class UIEffects {
       });
     });
 
+    // Map view buttons (2D/3D toggle)
+    document.querySelectorAll('.map-view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.map-view-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const view = btn.getAttribute('data-view');
+        if (window.mapManager) {
+          window.mapManager.switchMap(view);
+        }
+      });
+    });
+
+    // Clear route button
+    const btnClearRoute = document.getElementById('btnClearRoute');
+    if (btnClearRoute) {
+      btnClearRoute.addEventListener('click', () => {
+        if (window.mapManager) {
+          window.mapManager.clearRoute();
+          document.getElementById('routing-status').textContent = 'Click map to select start point';
+          const routeDetails = document.getElementById('route-details');
+          if (routeDetails) routeDetails.style.display = 'none';
+          const routeDirections = document.getElementById('route-directions');
+          if (routeDirections) routeDirections.innerHTML = '';
+        }
+      });
+    }
+
     // Speed control slider
     const speedControl = document.getElementById('speedControl');
     if (speedControl) {
@@ -107,6 +134,13 @@ class UIEffects {
     // Toggle missile mode for map clicks
     if (window.mapManager) {
       window.mapManager.setMissileMode(screen === 'missile-testing');
+
+      // Enable routing mode when routes screen is selected
+      if (screen === 'routes') {
+        window.mapManager.setRoutingMode(true);
+      } else {
+        window.mapManager.setRoutingMode(false);
+      }
     }
 
     // Map is always visible now - no need to toggle views

@@ -28,9 +28,50 @@ class MapManager {
       totalDistanceKm: 0,
       estimatedTimeSec: 0
     };
+
+    // Dual-map support properties
+    this.mapType = 'leaflet'; // 'leaflet' or 'cesium'
+    this.cesiumViewer = null;
+
+    // Routing support properties
+    this.routingMode = false;
+    this.routing = {
+      enabled: false,
+      startPoint: null,
+      endPoint: null,
+      polyline: null,
+      startMarker: null,
+      endMarker: null,
+      isCalculating: false
+    };
   }
 
   init() {
+    // Initialize appropriate map based on mapType property
+    if (this.mapType === 'cesium') {
+      this.initCesium();
+    } else {
+      this.initLeaflet();
+    }
+
+    // Draw country borders
+    this.drawCountryBorders();
+
+    // Add radar animation and grid (Leaflet only)
+    if (this.mapType === 'leaflet') {
+      this.addRadarAnimation();
+      this.addGridOverlay();
+
+      // Add map event listeners for Leaflet
+      this.map.on('click', (e) => {
+        this.handleMapClick(e);
+      });
+    } else if (this.mapType === 'cesium') {
+      // Cesium click handler is set up in initCesium()
+    }
+  }
+
+  initLeaflet() {
     // Initialize Leaflet map - Centered on India
     this.map = L.map('map', {
       center: [20.5937, 78.9629], // India center
@@ -42,25 +83,6 @@ class MapManager {
     });
 
     this.setMapStyle('dark');
-
-    // Draw country borders
-    this.drawCountryBorders();
-
-    // Country labels removed for a cleaner look
-
-    // Add radar animation
-    this.addRadarAnimation();
-
-    // Add grid overlay
-    this.addGridOverlay();
-
-    // Add map event listeners
-    this.map.on('click', (e) => {
-      this.handleMapClick(e);
-    });
-
-    // Object markers disabled - missile simulation only
-    // this.updateMarkers();
   }
 
   setMapStyle(style) {
@@ -133,6 +155,12 @@ class MapManager {
   }
 
   handleMapClick(e) {
+    // Routing mode takes precedence
+    if (this.routingMode && this.routing.enabled) {
+      this.handleRoutingClick(e.latlng.lat, e.latlng.lng);
+      return;
+    }
+
     if (!this.missileModeActive) return;
     // Missile selection modes take precedence
     if (this.missile.selectingLaunch) {
@@ -151,9 +179,6 @@ class MapManager {
       this.app.addAlert(`Target point set at ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`, 'warning');
       return;
     }
-
-    // Map clicks reserved for missile simulation only
-    // No default object repositioning
   }
 
   setMissileType(name, rangeKm, speedKms) {
@@ -562,5 +587,252 @@ class MapManager {
 
     // Handle window resize
     window.addEventListener('resize', resizeCanvas);
+  }
+
+  // ==================== DUAL-MAP AND ROUTING METHODS ====================
+
+  /**
+   * Initialize Cesium 3D viewer
+   */
+  initCesium() {
+    try {
+      if (typeof Cesium === 'undefined') {
+        console.error('Cesium library not loaded');
+        this.app.addAlert('Error: Cesium library not loaded', 'error');
+        return;
+      }
+
+      this.cesiumViewer = new Cesium.Viewer('map', {
+        timelinecontrols: false,
+        animationControls: false,
+        baseLayerPicker: true,
+        geocoder: false,
+        homeButton: false,
+        infoBox: false,
+        fullscreenButton: true,
+        vrButton: false,
+        sceneModePicker: true,
+        selectionIndicator: true,
+        navigationHelpButton: false
+      });
+
+      this.cesiumViewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(78.9629, 20.5937, 1500000),
+        orientation: {
+          heading: Cesium.Math.toRadians(0),
+          pitch: Cesium.Math.toRadians(-30),
+          roll: 0.0
+        }
+      });
+
+      const handler = new Cesium.ScreenSpaceEventHandler(this.cesiumViewer.scene.canvas);
+      handler.setInputAction((click) => {
+        const cartesian = this.cesiumViewer.scene.pickPosition(click.position);
+        if (Cesium.defined(cartesian)) {
+          const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+          const lat = Cesium.Math.toDegrees(cartographic.latitude);
+          const lng = Cesium.Math.toDegrees(cartographic.longitude);
+          this.handleMapClick({ latlng: { lat, lng } });
+        }
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+      this.app.addAlert('Cesium 3D viewer initialized', 'success');
+    } catch (error) {
+      console.error('Cesium init error:', error);
+      this.app.addAlert('Cesium error - falling back to 2D', 'error');
+      this.mapType = 'leaflet';
+      this.initLeaflet();
+    }
+  }
+
+  /**
+   * Switch between Leaflet and Cesium maps
+   */
+  switchMap(type) {
+    if (!['leaflet', 'cesium'].includes(type)) {
+      console.error('Invalid map type: ' + type);
+      return;
+    }
+
+    if (this.mapType === type) return;
+
+    try {
+      const mapContainer = document.getElementById('map');
+      if (!mapContainer) return;
+
+      // Clean up current map
+      if (this.map) this.map.remove();
+      if (this.cesiumViewer) this.cesiumViewer.destroy();
+
+      mapContainer.innerHTML = '';
+      this.mapType = type;
+
+      // Reinit
+      if (type === 'leaflet') {
+        this.initLeaflet();
+        this.addRadarAnimation();
+        this.addGridOverlay();
+        this.map.on('click', (e) => this.handleMapClick(e));
+      } else {
+        this.initCesium();
+      }
+
+      this.app.addAlert('Switched to ' + type.toUpperCase() + ' map', 'success');
+    } catch (error) {
+      console.error('Map switch error:', error);
+      this.app.addAlert('Error switching maps', 'error');
+    }
+  }
+
+  /**
+   * Enable/disable routing mode
+   */
+  setRoutingMode(enabled) {
+    this.routingMode = enabled;
+    this.routing.enabled = enabled;
+    if (enabled) {
+      this.clearRoute();
+      this.app.addAlert('Routing mode enabled', 'info');
+    }
+  }
+
+  /**
+   * Handle routing click
+   */
+  handleRoutingClick(lat, lng) {
+    if (!this.routingMode) return;
+
+    if (!this.routing.startPoint) {
+      this.routing.startPoint = { lat, lng };
+      if (this.mapType === 'leaflet') {
+        this.addRoutingMarker('start', lat, lng);
+      }
+      this.app.addAlert('Route start set', 'success');
+      return;
+    }
+
+    if (!this.routing.endPoint) {
+      this.routing.endPoint = { lat, lng };
+      if (this.mapType === 'leaflet') {
+        this.addRoutingMarker('end', lat, lng);
+      }
+      this.app.addAlert('Route end set', 'success');
+      this.fetchRoute();
+      return;
+    }
+
+    // Reset
+    this.routing.startPoint = { lat, lng };
+    this.routing.endPoint = null;
+    this.clearRoute();
+    if (this.mapType === 'leaflet') {
+      this.addRoutingMarker('start', lat, lng);
+    }
+  }
+
+  /**
+   * Add routing marker
+   */
+  addRoutingMarker(type, lat, lng) {
+    if (this.mapType !== 'leaflet' || !this.map) return;
+
+    const icon = type === 'start' ? '📍' : '🎯';
+    const color = type === 'start' ? '#00d4ff' : '#ff6b6b';
+
+    try {
+      const marker = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: 'routing-marker',
+          html: '<div style="font-size:20px;color:' + color + ';">' + icon + '</div>',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        })
+      }).addTo(this.map);
+
+      if (type === 'start') {
+        if (this.routing.startMarker) this.map.removeLayer(this.routing.startMarker);
+        this.routing.startMarker = marker;
+      } else {
+        if (this.routing.endMarker) this.map.removeLayer(this.routing.endMarker);
+        this.routing.endMarker = marker;
+      }
+    } catch (e) {
+      console.error('Marker error:', e);
+    }
+  }
+
+  /**
+   * Fetch route from OSRM API
+   */
+  async fetchRoute() {
+    if (!this.routing.startPoint || !this.routing.endPoint) return;
+
+    try {
+      const s = this.routing.startPoint;
+      const e = this.routing.endPoint;
+      const osrmUrl = 'https://router.project-osrm.org/route/v1/driving/' + s.lng + ',' + s.lat + ';' + e.lng + ',' + e.lat + '?overview=full&geometries=geojson';
+
+      const response = await fetch(osrmUrl);
+      const data = await response.json();
+
+      if (data.code === 'Ok' && data.routes.length > 0) {
+        const route = data.routes[0];
+        this.drawRoute(route.geometry.coordinates, route);
+        this.app.addAlert('Route: ' + (route.distance / 1000).toFixed(1) + ' km', 'success');
+      } else {
+        this.app.addAlert('No route found', 'warning');
+      }
+    } catch (error) {
+      console.error('Route error:', error);
+      this.app.addAlert('Routing error', 'error');
+    }
+  }
+
+  /**
+   * Draw route polyline
+   */
+  drawRoute(coordinates, routeData) {
+    if (this.mapType !== 'leaflet' || !this.map) return;
+
+    try {
+      if (this.routing.polyline) {
+        this.map.removeLayer(this.routing.polyline);
+      }
+
+      const latlngs = coordinates.map(c => [c[1], c[0]]);
+      this.routing.polyline = L.polyline(latlngs, {
+        color: '#00d4ff',
+        weight: 3,
+        opacity: 0.8,
+        dashArray: '4,2'
+      }).addTo(this.map);
+
+      const bounds = this.routing.polyline.getBounds();
+      this.map.fitBounds(bounds, { padding: [50, 50] });
+    } catch (error) {
+      console.error('Draw route error:', error);
+    }
+  }
+
+  /**
+   * Clear routing
+   */
+  clearRoute() {
+    if (this.mapType === 'leaflet' && this.map) {
+      if (this.routing.polyline) {
+        this.map.removeLayer(this.routing.polyline);
+        this.routing.polyline = null;
+      }
+      if (this.routing.startMarker) {
+        this.map.removeLayer(this.routing.startMarker);
+        this.routing.startMarker = null;
+      }
+      if (this.routing.endMarker) {
+        this.map.removeLayer(this.routing.endMarker);
+        this.routing.endMarker = null;
+      }
+    }
+    this.routing.startPoint = null;
+    this.routing.endPoint = null;
   }
 }

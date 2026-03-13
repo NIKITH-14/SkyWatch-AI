@@ -22,6 +22,10 @@
   <!-- Leaflet Rotated Marker -->
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.2/leaflet.rotatedMarker.umd.js"></script>
 
+  <!-- Cesium JS Globe (3D Map) -->
+  <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Widgets/widgets.css">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.109/Build/Cesium/Cesium.js"></script>
+
   <!-- Main Stylesheet -->
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -138,6 +142,10 @@
             <span class="nav-icon">⚠️</span>
             <span class="nav-label">Alerts & History</span>
           </button>
+          <button class="nav-btn" data-screen="routes">
+            <span class="nav-icon">🗺️</span>
+            <span class="nav-label">Navigation</span>
+          </button>
           <button class="nav-btn" data-screen="settings">
             <span class="nav-icon">⚙️</span>
             <span class="nav-label">Settings</span>
@@ -244,9 +252,47 @@
           <button id="btnClearAlerts" class="btn-full btn-gray" style="margin-top: 12px;">Clear Alerts</button>
         </div>
 
+        <!-- Routes/Navigation Panel -->
+        <div id="screen-routes" class="sidebar-content">
+          <div class="sidebar-header">🗺️ Navigation</div>
+          <div class="feature-item">
+            <p id="routing-status" style="margin: 0; color: #a8b0be; font-size: 12px;">Click map to select start point</p>
+          </div>
+
+          <!-- Route Details (populated after routing) -->
+          <div id="route-details" style="display:none; margin-top:12px;">
+            <div class="detail-row">
+              <span>Distance:</span>
+              <strong id="route-distance" style="color: var(--green);">--</strong>
+            </div>
+            <div class="detail-row">
+              <span>Duration:</span>
+              <strong id="route-duration" style="color: var(--green);">--</strong>
+            </div>
+            <div class="detail-row">
+              <span>Type:</span>
+              <strong style="color: var(--cyan);">Driving Route</strong>
+            </div>
+          </div>
+
+          <!-- Turn-by-Turn Directions -->
+          <div id="route-directions" class="alerts-list" style="display:none; margin-top: 12px;">
+            <!-- Populated dynamically -->
+          </div>
+
+          <button id="btnClearRoute" class="btn-full btn-gray" style="display:none;">Clear Route</button>
+        </div>
+
         <!-- Settings Panel -->
         <div id="screen-settings" class="sidebar-content">
           <div class="sidebar-header">Settings</div>
+          <div class="settings-group">
+            <label>Map View</label>
+            <div class="button-group">
+              <button class="btn-small map-view-btn active" data-view="leaflet">2D Map</button>
+              <button class="btn-small map-view-btn" data-view="cesium">3D Globe</button>
+            </div>
+          </div>
           <div class="settings-group">
             <label>Map Style</label>
             <div class="button-group">
@@ -277,7 +323,11 @@
       <main class="main-view">
         <!-- Map Screen -->
         <div id="mapView" class="map-view active">
+          <!-- Leaflet Map (2D) -->
           <div id="map" class="map-container"></div>
+
+          <!-- Cesium Globe (3D) - Initially Hidden -->
+          <div id="cesiumContainer" class="map-container hidden"></div>
 
           <!-- Floating HUD Panels -->
           <div class="hud-panels">
