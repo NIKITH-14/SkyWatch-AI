@@ -176,36 +176,14 @@ class MapManager {
   }
 
   setWorldWindLayer(layer) {
-    if (!this.worldwindGlobe) return;
+    if (!this.cesiumViewer) return;
 
     try {
-      // Remove all existing layers
-      const layerCount = this.worldwindGlobe.layers.length;
-      for (let i = layerCount - 1; i >= 0; i--) {
-        this.worldwindGlobe.removeLayer(this.worldwindGlobe.layers[i]);
-      }
-
-      // Add selected layer
-      if (layer === 'satellite') {
-        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
-        this.app.addAlert('Layer: Satellite', 'info');
-      } else if (layer === 'roads') {
-        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.ROADS));
-        this.app.addAlert('Layer: Roads', 'info');
-      } else if (layer === 'hybrid') {
-        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
-        this.app.addAlert('Layer: Hybrid', 'info');
-      } else if (layer === 'dark') {
-        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
-        this.app.addAlert('Layer: Dark Mode', 'info');
-      } else if (layer === 'normal') {
-        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.ROADS));
-        this.app.addAlert('Layer: Normal', 'info');
-      }
-
-      this.worldwindGlobe.redraw();
+      // For CesiumJS, we keep the night texture always
+      // Layer switching is mainly visual style (keeping night map)
+      this.app.addAlert('Layer: ' + layer.charAt(0).toUpperCase() + layer.slice(1), 'info');
     } catch (error) {
-      console.error('WorldWind layer switch error:', error);
+      console.error('Cesium layer switch error:', error);
     }
   }
 
@@ -503,9 +481,8 @@ class MapManager {
     // Add country borders from Natural Earth GeoJSON
     if (this.mapType === 'leaflet' && this.map) {
       this.addBordersToLeaflet();
-    } else if (this.mapType === 'cesium' && this.worldwindGlobe) {
-      this.addBordersToWorldWind();
     }
+    // CesiumJS borders are loaded in initCesium()
   }
 
   addBordersToLeaflet() {
@@ -556,52 +533,8 @@ class MapManager {
   }
 
   addBordersToWorldWind() {
-    // Simplified borders for WorldWind (using RenderableLayer)
-    if (this.borderLayer) return;
-
-    const self = this;
-    const geojsonUrl = 'https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.geojson';
-
-    fetch(geojsonUrl)
-      .then(response => response.json())
-      .then(data => {
-        // Create a layer for borders
-        const borderLayer = new WorldWind.RenderableLayer('Country Borders');
-
-        // Process GeoJSON and add to WorldWind
-        data.features.forEach(feature => {
-          if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
-            const coordinates = feature.geometry.coordinates;
-            const coords = feature.geometry.type === 'Polygon' ? coordinates[0] : coordinates[0][0];
-
-            // Convert to WorldWind positions
-            const positions = [];
-            coords.forEach(coord => {
-              positions.push(new WorldWind.Position(coord[1], coord[0], 0));
-            });
-
-            // Create polyline
-            const polyline = new WorldWind.Polyline(positions, null);
-            polyline.outlineColor = new WorldWind.Color(
-              30 / 255,
-              204 / 255,
-              113 / 255,
-              0.8
-            );
-            polyline.outlineWidth = 2;
-
-            borderLayer.addRenderable(polyline);
-          }
-        });
-
-        this.worldwindGlobe.addLayer(borderLayer);
-        this.borderLayer = borderLayer;
-        this.app.addAlert('Borders loaded - Satellite Globe ready', 'success');
-      })
-      .catch(error => {
-        console.error('WorldWind border error:', error);
-        this.app.addAlert('Could not load borders on 3D globe', 'warning');
-      });
+    // Borders are now loaded directly in initCesium() using GeoJSON
+    // This function kept for compatibility
   }
 
   addCountryLabels() {
@@ -801,14 +734,13 @@ class MapManager {
   // ==================== DUAL-MAP AND ROUTING METHODS ====================
 
   /**
-   * Initialize NASA WorldWind 3D Globe
+   * Initialize CesiumJS 3D Globe
    */
   initCesium() {
     try {
-      if (typeof WorldWind === 'undefined') {
-        console.error('NASA WorldWind library not loaded');
-        this.app.addAlert('WorldWind loading - please wait...', 'info');
-        // Retry after a short delay
+      if (typeof Cesium === 'undefined') {
+        console.error('CesiumJS library not loaded');
+        this.app.addAlert('CesiumJS loading - please wait...', 'info');
         setTimeout(() => this.initCesium(), 2000);
         return;
       }
@@ -822,45 +754,81 @@ class MapManager {
       // Clear any existing content
       cesiumContainer.innerHTML = '';
 
-      // Create WorldWind Globe viewer
-      const wwd = new WorldWind.WorldWindow('cesiumContainer');
+      // Disable Ion token requirement
+      Cesium.Ion.defaultAccessToken = "";
 
-      // Add Bing Aerial satellite imagery layer
-      wwd.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
+      // Create CesiumJS Viewer with minimal UI
+      this.cesiumViewer = new Cesium.Viewer('cesiumContainer', {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        fullscreenButton: false,
+        infoBox: false,
+        selectionIndicator: false,
+        skyBox: false,
+        skyAtmosphere: false,
+        creditContainer: document.createElement('div')
+      });
 
-      // Set viewport to view Earth from space (satellite perspective)
-      // Positioned over India with good zoom level to see the whole Earth
-      wwd.navigator.lookAtLatLon = new WorldWind.Location(20, 78, 8000000); // 8 million meters altitude
+      // Remove default imagery and add night Earth texture
+      this.cesiumViewer.imageryLayers.removeAll();
+      this.cesiumViewer.imageryLayers.addImageryProvider(
+        new Cesium.SingleTileImageryProvider({
+          url: "assets/earth_night.jpg",
+          rectangle: Cesium.Rectangle.fromDegrees(-180, -90, 180, 90)
+        })
+      );
 
-      // Store reference for later use
-      this.worldwindGlobe = wwd;
+      // FULLY LIT GLOBE - No day/night shadow
+      this.cesiumViewer.scene.globe.enableLighting = false;
+      this.cesiumViewer.scene.globe.showGroundAtmosphere = false;
 
-      // Add click handler for coordinate selection (for missile/routing)
+      // Dark space background
+      this.cesiumViewer.scene.backgroundColor = Cesium.Color.BLACK;
+      this.cesiumViewer.scene.sun.show = false;
+      this.cesiumViewer.scene.moon.show = false;
+      this.cesiumViewer.scene.globe.baseColor = Cesium.Color.BLACK;
+
+      // Load country borders with glowing cyan lines
+      Cesium.GeoJsonDataSource.load("data/countries.geojson", {
+        stroke: Cesium.Color.CYAN,
+        strokeWidth: 1.5,
+        fill: Cesium.Color.TRANSPARENT
+      }).then((dataSource) => {
+        this.cesiumViewer.dataSources.add(dataSource);
+      }).catch((error) => {
+        console.warn('GeoJSON borders not loaded:', error);
+      });
+
+      // Initial view - centered on India from space
+      this.cesiumViewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(78.9629, 20.5937, 15000000)
+      });
+
+      // Add click handler for coordinate selection
       const self = this;
-      cesiumContainer.addEventListener('click', function(event) {
-        const x = event.clientX;
-        const y = event.clientY;
-
-        try {
-          const pickList = wwd.pick(new WorldWind.Vec2(x, y));
-          const position = wwd.computePositionFromScreenPoint(new WorldWind.Vec2(x, y));
-
-          if (position) {
-            self.handleMapClick({ latlng: { lat: position.latitude, lng: position.longitude } });
-          }
-        } catch (e) {
-          console.log('Click pick error:', e);
+      const handler = new Cesium.ScreenSpaceEventHandler(this.cesiumViewer.scene.canvas);
+      handler.setInputAction(function(click) {
+        const cartesian = self.cesiumViewer.camera.pickEllipsoid(click.position, self.cesiumViewer.scene.globe.ellipsoid);
+        if (cartesian) {
+          const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+          const lat = Cesium.Math.toDegrees(cartographic.latitude);
+          const lng = Cesium.Math.toDegrees(cartographic.longitude);
+          self.handleMapClick({ latlng: { lat: lat, lng: lng } });
         }
-      }, false);
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-      // Update layer selector to show active layer
+      // Update layer selector
       this.updateLayerSelector('satellite');
 
-      this.app.addAlert('3D Earth Globe loaded - Satellite View ✓', 'success');
+      this.app.addAlert('3D Earth Globe loaded - CesiumJS Ready', 'success');
     } catch (error) {
-      console.error('WorldWind init error:', error);
+      console.error('CesiumJS init error:', error);
       this.app.addAlert('Could not load 3D globe - switching to 2D', 'error');
-      // Fallback to Leaflet
       this.mapType = 'leaflet';
       setTimeout(() => this.initLeaflet(), 500);
     }
@@ -887,12 +855,8 @@ class MapManager {
         this.map.remove();
         this.map = null;
       }
-      if (this.mapType === 'cesium' && this.worldwindGlobe) {
-        // WorldWind cleanup
-        this.worldwindGlobe = null;
-      }
       if (this.mapType === 'cesium' && this.cesiumViewer) {
-        // Fallback Cesium cleanup (if still in use)
+        this.cesiumViewer.destroy();
         this.cesiumViewer = null;
       }
 
@@ -914,9 +878,6 @@ class MapManager {
         mapContainer.classList.add('hidden');
         cesiumContainer.classList.remove('hidden');
         this.initCesium();
-        // Reset border layer for WorldWind
-        this.borderLayer = null;
-        setTimeout(() => this.addBordersToWorldWind(), 1000);
       }
 
       // Hide HUD panels when switching maps
