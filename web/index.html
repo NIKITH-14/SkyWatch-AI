@@ -4,54 +4,106 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SkyWatch AI — Intelligence Control Center</title>
+
+  <!-- Font Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <!-- Leaflet Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <!-- Leaflet Rotated Marker -->
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotatedmarker@0.2.2/leaflet.rotatedMarker.umd.js"></script>
+
+  <!-- Main Stylesheet -->
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-  <!-- ==================== LOGIN SCREEN ==================== -->
-  <div id="loginScreen" class="login-screen active">
-    <div class="login-background">
-      <canvas id="loginCanvas"></canvas>
-    </div>
-    <div class="login-container">
-      <div class="login-panel">
-        <div class="login-title">SkyWatch AI</div>
-        <div class="login-subtitle">Secure Intelligence Login</div>
-        
-        <form id="loginForm" class="login-form">
-          <div class="input-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" placeholder="Enter credentials" required />
-          </div>
-          
-          <div class="input-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" placeholder="Enter password" required />
-          </div>
-          
-          <button type="submit" class="login-btn">
-            <span>ACCESS SYSTEM</span>
-            <span class="btn-glow"></span>
-          </button>
-        </form>
+<body id="main-body">
 
-        <div class="login-footer">
-          <p>Intelligence Agency Control System v2.0</p>
-          <p style="font-size: 11px; margin-top: 8px; color: #00ff88;">Secure Connection Established</p>
-        </div>
-      </div>
+  <!-- ==================== TERMINAL VIEW (PAGE 1) ==================== -->
+  <div id="terminal-view" class="terminal-body">
+    <div id="terminal-container">
+      <p class="blink">_</p>
+    </div>
+
+    <div id="click-overlay" onclick="startVerificationProtocol()">
+      <p>[SYSTEM AWAITING MANUAL OVERRIDE]</p>
+      <p>>>> CLICK ANYWHERE TO INITIATE FULLSCREEN PROTOCOL <<<</p>
     </div>
   </div>
 
-  <!-- ==================== MAIN APPLICATION ==================== -->
-  <div id="mainApp" class="main-app">
+  <!-- ==================== LOCK SCREEN VIEW (PAGE 2) ==================== -->
+  <div id="login-view" class="premium-body hidden" style="opacity: 0; transition: opacity 1.5s ease-in-out;">
+    <div class="background-effects" id="background-effects-container">
+      <canvas id="matrix-canvas"></canvas>
+      <div class="scanline"></div>
+      <div class="grid"></div>
+    </div>
+
+    <div class="login-container">
+      <div class="header">
+        <div class="user-avatar-container">
+          <!-- High-tech Agent Avatar -->
+          <svg class="user-avatar" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1 class="glow-text">SKYWATCH</h1>
+        <p class="subtitle">AUTHORIZATION REQUIRED</p>
+      </div>
+
+      <div class="status-panel">
+        <h3>HARDWARE VERIFICATION</h3>
+        <ul class="status-list">
+          <li id="status-step-1" class="status-item pending">
+            <span class="icon">[ ]</span>
+            <span class="text">STEP 1: Raspberry Pi 1 - Face Detection</span>
+            <span class="indicator">AWAITING...</span>
+          </li>
+          <li id="status-step-2" class="status-item pending">
+            <span class="icon">[ ]</span>
+            <span class="text">STEP 2: Raspberry Pi 2 - LCD PIN Entry</span>
+            <span class="indicator">AWAITING...</span>
+          </li>
+          <li id="status-step-3" class="status-item pending">
+            <span class="icon">[ ]</span>
+            <span class="text">STEP 3: Retinal Scan Analysis</span>
+            <span class="indicator">AWAITING...</span>
+          </li>
+          <li id="status-step-4" class="status-item pending">
+            <span class="icon">[ ]</span>
+            <span class="text">STEP 4: Local Node - User Auth</span>
+            <span class="indicator">LOCKED</span>
+          </li>
+        </ul>
+      </div>
+
+      <form id="login-form" class="locked-form">
+        <div class="input-group">
+          <label for="username">USERNAME</label>
+          <input type="text" id="username" placeholder="Enter username" required>
+        </div>
+
+        <div class="input-group">
+          <label for="password">ACCESS CODE</label>
+          <input type="password" id="password" required disabled placeholder="ENTER PASSWORD">
+        </div>
+
+        <button type="submit" id="auth-button" disabled>AUTHENTICATE</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN DASHBOARD VIEW (PAGE 3) ==================== -->
+  <div id="dashboard-view" class="dashboard-body hidden" style="opacity: 0; transition: opacity 1.5s ease-in-out;">
     <!-- TOP STATUS BAR -->
     <header class="topbar">
       <div class="topbar-brand">⚔️ SkyWatch AI Control Center</div>
@@ -226,7 +278,7 @@
         <!-- Map Screen -->
         <div id="mapView" class="map-view active">
           <div id="map" class="map-container"></div>
-          
+
           <!-- Floating HUD Panels -->
           <div class="hud-panels">
             <!-- System Status Panel -->
@@ -235,14 +287,14 @@
               <div class="hud-value" id="hudSystemStatus">OPERATIONAL</div>
               <div class="hud-subtext">All Systems Online</div>
             </div>
-            
+
             <!-- Alerts Panel -->
             <div class="hud-panel hud-bottom-left">
               <div class="hud-header">ALERTS</div>
               <div class="hud-value" id="hudAlertCount">0</div>
               <div class="hud-subtext">Active Notifications</div>
             </div>
-            
+
             <!-- Coordinates Panel -->
             <div class="hud-panel hud-bottom-right">
               <div class="hud-header">COORDINATES</div>
@@ -252,7 +304,7 @@
           </div>
         </div>
       </main>
-      
+
       <!-- FOOTER MENU BAR -->
       <footer class="footer-menu">
         <button class="footer-btn active" data-footer-action="missile-testing">
@@ -279,7 +331,15 @@
     </div>
   </div>
 
+  <!-- Security Overlay to ensure Fullscreen is maintained -->
+  <div id="fullscreen-warning" class="hidden">
+    <h2>SECURITY BREACH DETECTED</h2>
+    <p>FULL SCREEN MODE EXITED. TERMINATING SESSION.</p>
+    <button onclick="requestFullScreenAgain()">RE-ENGAGE SECURE MODE</button>
+  </div>
+
   <!-- SCRIPTS -->
+  <script src="auth.js"></script>
   <script src="app.js"></script>
   <script src="map-manager.js"></script>
   <script src="object-tracker.js"></script>

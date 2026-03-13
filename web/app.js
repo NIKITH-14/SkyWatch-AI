@@ -18,7 +18,7 @@ class SkyWatchApp {
 
   init() {
     this.setupEventListeners();
-    this.updateSystemTime();
+    // System time is now handled by ui-effects.js
     this.startAnimationLoop();
 
     // Initialize AI Engine
@@ -324,7 +324,14 @@ class SkyWatchApp {
   }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  window.app = new SkyWatchApp();
-});
+// Initialize app after successful login
+// This function will be called from auth.js after user logs in
+// and dashboard becomes visible
+function initSkyWatchApp() {
+  if (!window.skyWatchApp) {
+    window.skyWatchApp = new SkyWatchApp();
+  }
+}
+
+// Store the init function globally for auth.js to call
+window.initSkyWatchApp = initSkyWatchApp;
