@@ -47,6 +47,12 @@ class MapManager {
   }
 
   init() {
+    // Hide HUD panels on dashboard
+    const hudPanels = document.querySelector('.hud-panels');
+    if (hudPanels) {
+      hudPanels.style.display = 'none';
+    }
+
     // Initialize appropriate map based on mapType property
     if (this.mapType === 'cesium') {
       this.initCesium();
@@ -602,22 +608,38 @@ class MapManager {
         return;
       }
 
-      this.cesiumViewer = new Cesium.Viewer('map', {
-        timelinecontrols: false,
+      const cesiumContainer = document.getElementById('cesiumContainer');
+      if (!cesiumContainer) {
+        console.error('cesiumContainer not found in DOM');
+        return;
+      }
+
+      // Clear any existing content
+      cesiumContainer.innerHTML = '';
+
+      this.cesiumViewer = new Cesium.Viewer('cesiumContainer', {
+        timelineControls: false,
         animationControls: false,
         baseLayerPicker: true,
         geocoder: false,
         homeButton: false,
         infoBox: false,
-        fullscreenButton: true,
+        fullscreenButton: false,
         vrButton: false,
-        sceneModePicker: true,
-        selectionIndicator: true,
-        navigationHelpButton: false
+        sceneModePicker: false,
+        selectionIndicator: false,
+        navigationHelpButton: false,
+        scene3DOnly: true,
+        terrainProvider: Cesium.Cesium3DTileset.ArcGISTerrain
       });
 
+      // Enable lighting and atmosphere
+      this.cesiumViewer.scene.globe.enableLighting = true;
+      this.cesiumViewer.scene.globe.showGroundAtmosphere = true;
+
+      // Set initial view to show entire Earth
       this.cesiumViewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(78.9629, 20.5937, 1500000),
+        destination: Cesium.Cartesian3.fromDegrees(0, 20, 30000000),
         orientation: {
           heading: Cesium.Math.toRadians(0),
           pitch: Cesium.Math.toRadians(-30),
@@ -636,12 +658,13 @@ class MapManager {
         }
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-      this.app.addAlert('Cesium 3D viewer initialized', 'success');
+      this.app.addAlert('3D Globe loaded successfully', 'success');
     } catch (error) {
       console.error('Cesium init error:', error);
-      this.app.addAlert('Cesium error - falling back to 2D', 'error');
+      this.app.addAlert('Could not load 3D globe - try switching back to 2D', 'error');
+      // Fallback to Leaflet
       this.mapType = 'leaflet';
-      this.initLeaflet();
+      setTimeout(() => this.initLeaflet(), 500);
     }
   }
 
@@ -658,23 +681,40 @@ class MapManager {
 
     try {
       const mapContainer = document.getElementById('map');
-      if (!mapContainer) return;
+      const cesiumContainer = document.getElementById('cesiumContainer');
+      if (!mapContainer || !cesiumContainer) return;
 
       // Clean up current map
-      if (this.map) this.map.remove();
-      if (this.cesiumViewer) this.cesiumViewer.destroy();
+      if (this.mapType === 'leaflet' && this.map) {
+        this.map.remove();
+        this.map = null;
+      }
+      if (this.mapType === 'cesium' && this.cesiumViewer) {
+        this.cesiumViewer.destroy();
+        this.cesiumViewer = null;
+      }
 
-      mapContainer.innerHTML = '';
+      // Update type first
       this.mapType = type;
 
-      // Reinit
+      // Show/hide containers
       if (type === 'leaflet') {
+        mapContainer.classList.remove('hidden');
+        cesiumContainer.classList.add('hidden');
         this.initLeaflet();
         this.addRadarAnimation();
         this.addGridOverlay();
         this.map.on('click', (e) => this.handleMapClick(e));
       } else {
+        mapContainer.classList.add('hidden');
+        cesiumContainer.classList.remove('hidden');
         this.initCesium();
+      }
+
+      // Hide HUD panels when switching maps
+      const hudPanels = document.querySelector('.hud-panels');
+      if (hudPanels) {
+        hudPanels.style.display = 'none';
       }
 
       this.app.addAlert('Switched to ' + type.toUpperCase() + ' map', 'success');
