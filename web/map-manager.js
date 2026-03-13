@@ -32,6 +32,7 @@ class MapManager {
     // Dual-map support properties
     this.mapType = 'leaflet'; // 'leaflet' or 'cesium'
     this.cesiumViewer = null;
+    this.worldwindGlobe = null;
 
     // Routing support properties
     this.routingMode = false;
@@ -598,13 +599,15 @@ class MapManager {
   // ==================== DUAL-MAP AND ROUTING METHODS ====================
 
   /**
-   * Initialize Cesium 3D viewer
+   * Initialize NASA WorldWind 3D Globe
    */
   initCesium() {
     try {
-      if (typeof Cesium === 'undefined') {
-        console.error('Cesium library not loaded');
-        this.app.addAlert('Error: Cesium library not loaded', 'error');
+      if (typeof WorldWind === 'undefined') {
+        console.error('NASA WorldWind library not loaded');
+        this.app.addAlert('WorldWind loading - please wait...', 'info');
+        // Retry after a short delay
+        setTimeout(() => this.initCesium(), 2000);
         return;
       }
 
@@ -617,51 +620,41 @@ class MapManager {
       // Clear any existing content
       cesiumContainer.innerHTML = '';
 
-      this.cesiumViewer = new Cesium.Viewer('cesiumContainer', {
-        timelineControls: false,
-        animationControls: false,
-        baseLayerPicker: true,
-        geocoder: false,
-        homeButton: false,
-        infoBox: false,
-        fullscreenButton: false,
-        vrButton: false,
-        sceneModePicker: false,
-        selectionIndicator: false,
-        navigationHelpButton: false,
-        scene3DOnly: true,
-        terrainProvider: Cesium.Cesium3DTileset.ArcGISTerrain
-      });
+      // Create WorldWind Globe viewer
+      const wwd = new WorldWind.WorldWindow('cesiumContainer');
 
-      // Enable lighting and atmosphere
-      this.cesiumViewer.scene.globe.enableLighting = true;
-      this.cesiumViewer.scene.globe.showGroundAtmosphere = true;
+      // Add Bing Aerial satellite imagery layer
+      wwd.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
 
-      // Set initial view to show entire Earth
-      this.cesiumViewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(0, 20, 30000000),
-        orientation: {
-          heading: Cesium.Math.toRadians(0),
-          pitch: Cesium.Math.toRadians(-30),
-          roll: 0.0
+      // Set viewport to view Earth from space (satellite perspective)
+      // Positioned over India with good zoom level to see the whole Earth
+      wwd.navigator.lookAtLatLon = new WorldWind.Location(20, 78, 8000000); // 8 million meters altitude
+
+      // Store reference for later use
+      this.worldwindGlobe = wwd;
+
+      // Add click handler for coordinate selection (for missile/routing)
+      const self = this;
+      cesiumContainer.addEventListener('click', function(event) {
+        const x = event.clientX;
+        const y = event.clientY;
+
+        try {
+          const pickList = wwd.pick(new WorldWind.Vec2(x, y));
+          const position = wwd.computePositionFromScreenPoint(new WorldWind.Vec2(x, y));
+
+          if (position) {
+            self.handleMapClick({ latlng: { lat: position.latitude, lng: position.longitude } });
+          }
+        } catch (e) {
+          console.log('Click pick error:', e);
         }
-      });
+      }, false);
 
-      const handler = new Cesium.ScreenSpaceEventHandler(this.cesiumViewer.scene.canvas);
-      handler.setInputAction((click) => {
-        const cartesian = this.cesiumViewer.scene.pickPosition(click.position);
-        if (Cesium.defined(cartesian)) {
-          const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-          const lat = Cesium.Math.toDegrees(cartographic.latitude);
-          const lng = Cesium.Math.toDegrees(cartographic.longitude);
-          this.handleMapClick({ latlng: { lat, lng } });
-        }
-      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-      this.app.addAlert('3D Globe loaded successfully', 'success');
+      this.app.addAlert('3D Earth Globe loaded - Satellite View ✓', 'success');
     } catch (error) {
-      console.error('Cesium init error:', error);
-      this.app.addAlert('Could not load 3D globe - try switching back to 2D', 'error');
+      console.error('WorldWind init error:', error);
+      this.app.addAlert('Could not load 3D globe - switching to 2D', 'error');
       // Fallback to Leaflet
       this.mapType = 'leaflet';
       setTimeout(() => this.initLeaflet(), 500);
@@ -689,8 +682,12 @@ class MapManager {
         this.map.remove();
         this.map = null;
       }
+      if (this.mapType === 'cesium' && this.worldwindGlobe) {
+        // WorldWind cleanup
+        this.worldwindGlobe = null;
+      }
       if (this.mapType === 'cesium' && this.cesiumViewer) {
-        this.cesiumViewer.destroy();
+        // Fallback Cesium cleanup (if still in use)
         this.cesiumViewer = null;
       }
 
