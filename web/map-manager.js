@@ -11,6 +11,9 @@ class MapManager {
 
     this.missileModeActive = true;
 
+    // Earth imagery layer (for both 2D and 3D maps)
+    this.currentEarthLayer = 'satellite';
+
     // Missile simulation state
     this.missile = {
       name: 'Agni-5',
@@ -54,6 +57,9 @@ class MapManager {
       hudPanels.style.display = 'none';
     }
 
+    // Setup layer selector UI
+    this.setupLayerSelector();
+
     // Initialize appropriate map based on mapType property
     if (this.mapType === 'cesium') {
       this.initCesium();
@@ -78,6 +84,38 @@ class MapManager {
     }
   }
 
+  setupLayerSelector() {
+    const layerSelectorBtn = document.getElementById('layerSelectorBtn');
+    const layerMenu = document.getElementById('layerMenu');
+
+    if (!layerSelectorBtn || !layerMenu) return;
+
+    // Toggle menu on button click
+    layerSelectorBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      layerMenu.classList.toggle('hidden');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!layerSelectorBtn.contains(e.target) && !layerMenu.contains(e.target)) {
+        layerMenu.classList.add('hidden');
+      }
+    });
+
+    // Add layer selection handlers
+    document.querySelectorAll('.layer-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const layer = option.getAttribute('data-layer');
+        this.changeEarthLayer(layer);
+        layerMenu.classList.add('hidden');
+      });
+    });
+
+    // Set initial active layer
+    this.updateLayerSelector('satellite');
+  }
+
   initLeaflet() {
     // Initialize Leaflet map - Centered on India
     this.map = L.map('map', {
@@ -89,16 +127,21 @@ class MapManager {
       maxZoom: 16,
     });
 
-    this.setMapStyle('dark');
+    // Set default earth imagery layer (satellite)
+    this.setMapStyle('satellite');
+    this.updateLayerSelector('satellite');
   }
 
   setMapStyle(style) {
     this.currentMapStyle = style;
-    
+    this.currentEarthLayer = style;
+
     const tileUrls = {
       'normal': 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       'satellite': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      'dark': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      'dark': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      'roads': 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      'hybrid': 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
     };
 
     // Remove existing tile layer
@@ -112,10 +155,67 @@ class MapManager {
       attribution: 'Map data © contributors',
       maxZoom: 19,
     }).addTo(this.map);
+
+    // Update layer selector button
+    this.updateLayerSelector(style);
   }
 
   changeMapStyle(style) {
     this.setMapStyle(style);
+  }
+
+  changeEarthLayer(layer) {
+    this.currentEarthLayer = layer;
+    if (this.mapType === 'leaflet') {
+      this.setMapStyle(layer);
+    } else {
+      this.setWorldWindLayer(layer);
+    }
+    this.updateLayerSelector(layer);
+  }
+
+  setWorldWindLayer(layer) {
+    if (!this.worldwindGlobe) return;
+
+    try {
+      // Remove all existing layers
+      const layerCount = this.worldwindGlobe.layers.length;
+      for (let i = layerCount - 1; i >= 0; i--) {
+        this.worldwindGlobe.removeLayer(this.worldwindGlobe.layers[i]);
+      }
+
+      // Add selected layer
+      if (layer === 'satellite') {
+        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
+        this.app.addAlert('Layer: Satellite', 'info');
+      } else if (layer === 'roads') {
+        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.ROADS));
+        this.app.addAlert('Layer: Roads', 'info');
+      } else if (layer === 'hybrid') {
+        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
+        this.app.addAlert('Layer: Hybrid', 'info');
+      } else if (layer === 'dark') {
+        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.AERIAL));
+        this.app.addAlert('Layer: Dark Mode', 'info');
+      } else if (layer === 'normal') {
+        this.worldwindGlobe.addLayer(new WorldWind.BingImageryLayer(WorldWind.BingImageryLayer.LAYER_NAMES.ROADS));
+        this.app.addAlert('Layer: Normal', 'info');
+      }
+
+      this.worldwindGlobe.redraw();
+    } catch (error) {
+      console.error('WorldWind layer switch error:', error);
+    }
+  }
+
+  updateLayerSelector(activeLayer) {
+    const layerOptions = document.querySelectorAll('.layer-option');
+    layerOptions.forEach(option => {
+      option.classList.remove('active');
+      if (option.getAttribute('data-layer') === activeLayer) {
+        option.classList.add('active');
+      }
+    });
   }
 
   createMarker(id, obj) {
@@ -650,6 +750,9 @@ class MapManager {
           console.log('Click pick error:', e);
         }
       }, false);
+
+      // Update layer selector to show active layer
+      this.updateLayerSelector('satellite');
 
       this.app.addAlert('3D Earth Globe loaded - Satellite View ✓', 'success');
     } catch (error) {

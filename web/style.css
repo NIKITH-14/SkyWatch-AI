@@ -1467,3 +1467,106 @@ input::placeholder {
   border-radius: 50%;
 }
 
+/* ==================== LAYER SELECTOR BUTTON ==================== */
+
+.layer-selector-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  user-select: none;
+}
+
+.layer-selector-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--green);
+  background: rgba(0, 20, 40, 0.9);
+  color: var(--green);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 15px rgba(30, 204, 113, 0.3);
+}
+
+.layer-selector-btn:hover {
+  background: rgba(30, 204, 113, 0.2);
+  box-shadow: 0 0 25px rgba(30, 204, 113, 0.6);
+  transform: scale(1.1);
+}
+
+.layer-selector-btn .layer-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: float 2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+.layer-menu {
+  position: absolute;
+  top: 55px;
+  right: 0;
+  background: rgba(0, 20, 40, 0.95);
+  border: 2px solid var(--green);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(30, 204, 113, 0.3);
+  min-width: 160px;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.layer-menu.hidden {
+  display: none;
+}
+
+.layer-menu-title {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(30, 204, 113, 0.3);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.layer-option {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.layer-option:hover {
+  background: rgba(30, 204, 113, 0.1);
+  color: var(--green);
+  border-left-color: var(--green);
+  padding-left: 15px;
+}
+
+.layer-option.active {
+  background: rgba(30, 204, 113, 0.2);
+  color: var(--green);
+  border-left-color: var(--green);
+}
+
+.layer-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
